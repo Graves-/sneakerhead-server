@@ -1,22 +1,8 @@
 const graphql = require('graphql');
-const { GraphQLObjectType, GraphQLString, GraphQLSchema, GraphQLID, GraphQLList } = graphql;
-const _ = require('lodash');
+const { GraphQLObjectType, GraphQLString, GraphQLSchema, GraphQLID, GraphQLList, GraphQLNonNull } = graphql;
+const Sneaker = require('../models/sneaker');
+const Brand = require('../models/brand');
 
-// dummy data
-const sneakers = [
-    { name: 'Air Force 1', id: '1', brandId: '1' },
-    { name: 'Ultra Boost 1.0', id: '2', brandId: '2' },
-    { name: 'Old Skool', id: '3', brandId: '3' },
-    { name: 'Air Jordan 1', id: '4', brandId: '1' },
-];
-
-const brands = [
-    { name: 'Nike', id: '1' },
-    { name: 'Adidas', id: '2' },
-    { name: 'Vans', id: '3' },
-    { name: 'Converse', id: '4' },
-    { name: 'Reebok', id: '5' }
-];
 
 /**
  * Defining a new  GraphQL Type
@@ -29,7 +15,7 @@ const SneakerType = new GraphQLObjectType({
         brand: { 
             type: BrandType,
             resolve(parent, args){
-                return _.find(brands, { id: parent.brandId });
+                return Brand.findById(parent.brandId);
             } 
         }
     })
@@ -43,7 +29,7 @@ const BrandType = new GraphQLObjectType({
         sneakers: {
             type: new GraphQLList(SneakerType),
             resolve(parent, args){
-                return _.filter(sneakers, { brandId: parent.id });
+                return Sneaker.find({ brandId: parent.id });
             }
         }
     })
@@ -62,8 +48,7 @@ const RootQuery = new GraphQLObjectType({
                 id: { type: GraphQLID }
             },
             resolve(parent, args){
-                //code to get data from db/other source
-                return _.find(sneakers, { id: args.id });
+                return Sneaker.findById(args.id);
             }
         },
         brand: {
@@ -72,28 +57,63 @@ const RootQuery = new GraphQLObjectType({
                 id: { type: GraphQLID }
             },
             resolve(parent, args){
-                return _.find(brands, { id: args.id });
+                return Brand.findById(args.id);
             }
         },
         sneakers: {
             type: new GraphQLList(SneakerType),
             resolve(parent, args){
-                return sneakers;
+                return Sneaker.find({});
             }
         },
         brands: {
             type: new GraphQLList(BrandType),
             resolve(parent, args){
-                return brands;
+                return Brand.find({});
             }
         }
     }
 });
+
+
+/**
+ * Mutations
+ */
+
+ const Mutation = new GraphQLObjectType({
+     name: 'Mutation',
+     fields: {
+         addBrand: {
+             type: BrandType,
+             args: {
+                 name: { type: new GraphQLNonNull(GraphQLString) }
+             },
+             resolve(parent, args){
+                return new Brand({ name: args.name }).save();
+             }
+         },
+         addSneaker: {
+             type: SneakerType,
+             args: {
+                 name: { type: new GraphQLNonNull(GraphQLString) },
+                 brandId: { type: new GraphQLNonNull(GraphQLID) }
+             },
+             resolve(parent, args){
+                 return new Sneaker({
+                     name: args.name,
+                     brandId: args.brandId
+                 }).save();
+             }
+         }
+     }
+ })
+
 
 /**
  * Exporting the schema
  */
 
 module.exports = new GraphQLSchema({
-    query: RootQuery
+    query: RootQuery,
+    mutation: Mutation
 });
